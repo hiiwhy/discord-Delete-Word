@@ -1,21 +1,17 @@
-from discord.ext import commands
 import interactions
 from interactions import Intents
 from interactions.ext.wait_for import wait_for,setup
 from interactions import Message
 import sqlite3
-import asyncio
 import os
 import re
 
 Token = ""
 
-inter = interactions.Client(token=Token,intents=Intents.DEFAULT | Intents.GUILD_MESSAGE_CONTENT)
-setup(inter)
-bot = commands.Bot("!")
-bot.remove_command("help")
+bot = interactions.Client(token=Token,intents=Intents.DEFAULT | Intents.GUILD_MESSAGE_CONTENT)
+setup(bot)
 
-@inter.command(
+@bot.command(
     name="dell_word", 
     description="指定されたワードを削除します", 
     options= [
@@ -68,7 +64,7 @@ async def word_options(ctx: interactions.CommandContext, select=None, word=None)
                 async def check(msg):
                     if int(msg.author.id) == int(ctx.author.user.id):
                         return True
-                msg: Message = await wait_for(inter, "on_message_create", check=check)
+                msg: Message = await wait_for(bot, "on_message_create", check=check)
                 f = open(f'{path}/{guild_id}.txt','a',encoding="utf-8")
                 f.write(f'{msg}\n')
                 f.close()
@@ -77,7 +73,7 @@ async def word_options(ctx: interactions.CommandContext, select=None, word=None)
                 async def check(msg):
                     if int(msg.author.id) == int(ctx.author.user.id):
                         return True
-                msg: Message = await wait_for(inter, "on_message_create", check=check)
+                msg: Message = await wait_for(bot, "on_message_create", check=check)
                 with open(f'{path}/{guild_id}.txt') as f:
                     lines = f.readlines()
                     word_list = []
@@ -103,26 +99,24 @@ async def word_options(ctx: interactions.CommandContext, select=None, word=None)
             await ctx.send(f'設定完了しました',ephemeral=True)
 
 @bot.event
-async def on_message(message):
-    guild_id = message.guild.id
+async def on_message_create(message):
+    guild_id = message.guild_id
     conn = sqlite3.connect('data.db')
     c = conn.cursor()
     sql = 'select * from guild'
     for row in c.execute(sql):
-        if row[0] == guild_id:
+        if str(row[0]) == str(guild_id):
             if row[1] == "ON":
+                print(row[1])
                 with open(f'word/{guild_id}.txt') as f:
                     lines = f.readlines()
                 for l in lines:
                     l = l.replace('\n','')
-                    for i in message.content.split("\n"):
+                    for i in str(message.content).split("\n"):
                         result = re.search(l, i)
                         if result:
                             await message.delete()
                         else:
                             pass
 
-lp = asyncio.get_event_loop()
-lp.create_task(bot.start(Token))
-lp.create_task(inter._ready())
-lp.run_forever()
+bot.start()
